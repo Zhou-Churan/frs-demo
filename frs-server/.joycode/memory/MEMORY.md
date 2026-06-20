@@ -1,0 +1,1 @@
+- [project_stack](project_stack.md) — FRS人脸签到系统技术栈和关键约束
