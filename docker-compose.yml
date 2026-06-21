@@ -1,0 +1,65 @@
+version: '3.8'
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: frs-mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:-root}
+      MYSQL_DATABASE: frs_attendance
+      MYSQL_CHARACTER_SET_SERVER: utf8mb4
+      MYSQL_COLLATION_SERVER: utf8mb4_unicode_ci
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ./frs-server/src/main/resources/db/init.sql:/docker-entrypoint-initdb.d/init.sql
+    command: --default-authentication-plugin=mysql_native_password
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: frs-redis
+    restart: always
+    # 如需密码，取消注释下面一行
+    # command: redis-server --requirepass ${REDIS_PASSWORD:-}
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: frs-app
+    restart: always
+    ports:
+      - "80:80"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      - DB_PASSWORD=${DB_PASSWORD:-root}
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
+      - HUAWEICLOUD_SDK_AK=${HUAWEICLOUD_SDK_AK}
+      - HUAWEICLOUD_SDK_SK=${HUAWEICLOUD_SDK_SK}
+      - JWT_SECRET=${JWT_SECRET:-frs-attendance-system-default-secret-key-2026}
+      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/frs_attendance?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai&createDatabaseIfNotExist=true
+      - SPRING_REDIS_HOST=redis
+
+volumes:
+  mysql-data:
+  redis-data:
