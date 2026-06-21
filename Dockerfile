@@ -1,25 +1,23 @@
 # ===== 阶段1: 构建前端 =====
-FROM registry.cn-hangzhou.aliyuncs.com/library/node:20-alpine AS frontend-builder
+FROM node:20-alpine AS frontend-builder
 
 WORKDIR /build/frs-frontend
 COPY frs-frontend/package.json frs-frontend/package-lock.json ./
-RUN npm ci --registry=https://registry.npmmirror.com
+RUN npm ci
 COPY frs-frontend/ ./
 RUN npm run build
 
 # ===== 阶段2: 构建后端 =====
-FROM registry.cn-hangzhou.aliyuncs.com/library/maven:3.8-openjdk-8 AS backend-builder
+FROM maven:3.8-openjdk-8 AS backend-builder
 
 WORKDIR /build/frs-server
 COPY frs-server/pom.xml ./
-# 使用阿里云Maven镜像加速依赖下载
-RUN mkdir -p /root/.m2 && echo '<?xml version="1.0" encoding="UTF-8"?><settings><mirrors><mirror><id>aliyun</id><mirrorOf>*</mirrorOf><url>https://maven.aliyun.com/repository/public</url></mirror></mirrors></settings>' > /root/.m2/settings.xml
 RUN mvn dependency:go-offline -B
 COPY frs-server/src ./src
 RUN mvn package -DskipTests -B
 
 # ===== 阶段3: 运行时 =====
-FROM registry.cn-hangzhou.aliyuncs.com/library/openjdk:8-jdk
+FROM openjdk:8-jdk
 
 # 安装nginx
 RUN apt-get update && \
